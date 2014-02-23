@@ -1,0 +1,200 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<script src="js/raphael-min.js" type="text/javascript" charset="utf-8"></script>
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+<link rel="stylesheet" href="styles.css" type="text/css" media="screen">
+<script src="js/jquery.min.js"></script>
+<script src="js/underscore-min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="jremix.js"></script> 
+<script type="text/javascript" src="maze.js"></script> 
+<title> Maze Draw</title>
+</head>
+
+<body>
+<div id="wrap" class="navbar navbar-inverse">
+  <div class="navbar-inner">
+    <div class="container">
+      <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </a>
+      <a id='show-search' class="brand">Girl Talk in a Box</a>
+      <div class="nav-collapse collapse">
+        <ul class="nav">
+          <li><a id='show-main'  href="index.html">Main</a></li>
+          <li><a id='show-gallery' href="gallery.html" >Gallery of songs</a></li>
+          <li><a id='show-loader' href="loader.html">Upload a song</a></li>
+          <li><a id='show-help' href="help.html">Help</a></li>
+          <li><a id='show-about' href="about.html">About</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id='info-div'> <span id='info'> </span> </div>
+<div id='error'> </div> 
+
+<div id="hero">
+    <div id="stats">
+        <button class="btn btn-small" id='save'>Save</button>
+        <span id="numbers"> 
+            Length: <span class='nval' id='length'> 1 </span> 
+            Row: <span class='nval' id='row'> 100 </span> 
+            Col: <span class='nval' id='col'>1</span> 
+        </span>
+    </div>
+    <div id='tiles'></div>
+
+    <textarea id='json' rows="100" cols="200">
+    </textarea>
+
+</div>
+
+</body>
+<script src="bootstrap/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+
+var points = [];
+var maxRows = 25;
+var maxCols = 40;
+var padding = 1;
+var fwidth = 20; 
+var fheight = 20;
+var width = fwidth - padding; 
+var height = fheight - padding;
+
+function info(s) {
+    $("#info").text(s);
+}
+
+function error(s) {
+    if (s.length == 0) {
+        $("#error").hide();
+    } else {
+        $("#error").text(s);
+        $("#error").show();
+    }
+}
+
+function getCurPos() {
+    return points[points.length - 1];
+}
+
+function nextPoint(cInc, rInc) {
+    var cp = getCurPos();
+    return { row: cp.row + rInc, col: cp.col + cInc };
+}
+
+function updateStats() {
+    $("#length").text(points.length);
+    var cp = getCurPos();
+    $("#row").text(cp.row);
+    $("#col").text(cp.col);
+}
+
+function connectPoints(p1, p2) {
+    var sx = p1.rect.getBBox().x + width/2;
+    var sy = p1.rect.getBBox().y + width/2;
+    var ex = p2.rect.getBBox().x + width/2;
+    var ey = p2.rect.getBBox().y + height/2;
+    p2.line = drawLine(sx, sy, ex, ey);
+}
+
+function addPos(p) {
+    var x = p.col * (width + 1);
+    var y = p.row * (height + 1);
+    p.rect = paper.rect(x, y, width, height);
+    p.rect.attr("fill", "#CEa");
+    console.log(p);
+    $("#length").text(points.length);
+    if (points.length > 0) {
+        var cp = getCurPos();
+        connectPoints(cp, p);
+    }
+    points.push(p);
+}
+
+function removePos() {
+    if (points.length > 1) {
+        var point = points.pop();
+        point.rect.remove();
+        point.line.remove();
+        $("#length").text(points.length);
+    }
+}
+
+function drawLine(x1, y1, x2, y2) {
+    return paper.path( ["M", x1, y1, "L", x2, y2]);
+}
+
+function keydown(evt) {
+    var curPos = getCurPos();
+    console.log('key', evt.which);
+    if (evt.which == 39) {  // right arrow
+        if (curPos.col < maxCols - 1) {
+            var np = nextPoint(1, 0);
+            addPos(np);
+            evt.preventDefault();
+        }
+    }
+
+    if (evt.which == 37) {  // left arrow
+        if (curPos.col > 0) {
+            var np = nextPoint(-1, 0);
+            addPos(np);
+            evt.preventDefault();
+        }
+    }
+
+    if (evt.which ==38 ) {  // up arrow
+        if (curPos.row > 0) {
+            var np = nextPoint(0, -1);
+            addPos(np);
+            evt.preventDefault();
+        }
+    }
+
+    if (evt.which == 40  ) {  // down arrow
+        if (curPos.row < maxRows - 1) {
+            var np = nextPoint(0, 1);
+            addPos(np);
+            evt.preventDefault();
+        }
+    }
+
+    if (evt.which == 68  || evt.which == 8) {  // d
+        removePos();
+        evt.preventDefault();
+    }
+}
+
+function init() {
+    jQuery.ajaxSettings.traditional = true;  
+    $("#error").hide();
+    $("#save").click(function() {
+        var plist = [];
+        for (var i = 0; i < points.length; i++) {
+            plist.push( [points[i].col, points[i].row] );
+        }
+        var text = JSON.stringify(plist);
+
+        $("#json").val(text);
+    });
+
+    paper = Raphael("tiles", maxCols * fwidth + 10, maxRows * fheight + 10);
+    $(document).keydown(keydown);
+    addPos({row:0, col:0});
+    drawLine(0,0, fwidth * maxCols, 0);
+    drawLine(0, fheight * maxRows, 0, 0);
+    drawLine(fwidth * maxCols, 0, fwidth * maxCols, fheight * maxRows);
+    drawLine(fwidth * maxCols, fheight * maxRows,  0, fheight * maxRows);
+}
+
+window.onload = init;
+
+</script>
+
